@@ -7,34 +7,39 @@
 
 namespace duckdb {
 
-static uint64_t next_alloc_id;
-static std::mutex alloc_map_lock;
-static std::unordered_map<void *, uint64_t> alloc_map;
+static constexpr uint64_t alloc_size = (1ull << 30) * 20;
+static constexpr uint64_t alloc_alignment = 16;
+static std::atomic<data_ptr_t> global_memory {nullptr};
+static std::atomic<uint64_t> global_memory_offset {0};
+std::mutex alloc_lock;
+
+static data_ptr_t maybe_init_global() {
+	alloc_lock.lock();
+	data_ptr_t ptr = global_memory.load(std::memory_order_relaxed);
+	if (ptr == nullptr) {
+		ptr = data_ptr_cast(malloc(alloc_size));
+		global_memory.store(ptr, std::memory_order_relaxed);
+	}
+	alloc_lock.unlock();
+	return ptr;
+}
 
 data_ptr_t hackalloc_allocate(PrivateAllocatorData *private_data, idx_t size) {
-	auto default_allocate_result = malloc(size);
-	if (!default_allocate_result) {
-		throw std::bad_alloc();
+	size += alloc_alignment - 1;
+	size -= size % alloc_alignment;
+	data_ptr_t ptr = global_memory.load(std::memory_order_relaxed);
+	if (ptr == nullptr) [[unlikely]] {
+		ptr = maybe_init_global();
 	}
-	auto ret = data_ptr_cast(default_allocate_result);
-	{
-		alloc_map_lock.lock();
-		auto id = ++next_alloc_id;
-		std::cout << "A" << id << std::endl;
-		alloc_map.emplace(ret, id);
-		alloc_map_lock.unlock();
+	uint64_t offset = global_memory_offset.fetch_add(size, std::memory_order_relaxed);
+	if (offset + size > alloc_size) [[unlikely]] {
+		std::cout << "hackalloc out of memory" << std::endl;
+		return nullptr;
 	}
-	return ret;
+	return ptr + offset;
 }
 
 void hackalloc_free(PrivateAllocatorData *private_data, data_ptr_t pointer, idx_t size) {
-	{
-		alloc_map_lock.lock();
-		auto id = alloc_map[pointer];
-		std::cout << "F" << id << std::endl;
-		alloc_map_lock.unlock();
-	}
-	free(pointer);
 }
 
 data_ptr_t hackalloc_reallocate(PrivateAllocatorData *private_data, data_ptr_t pointer, idx_t old_size, idx_t size) {
