@@ -1,5 +1,6 @@
 #include "duckdb/common/allocator.hpp"
 
+#include "../hackalloc/hackalloc.h"
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/atomic.hpp"
 #include "duckdb/common/exception.hpp"
@@ -101,11 +102,16 @@ PrivateAllocatorData::PrivateAllocatorData() {
 PrivateAllocatorData::~PrivateAllocatorData() {
 }
 
+static bool use_hack_alloc() {
+	return getenv("HACK_ALLOC")!=nullptr;
+}
+
 //===--------------------------------------------------------------------===//
 // Allocator
 //===--------------------------------------------------------------------===//
 Allocator::Allocator()
-    : Allocator(Allocator::DefaultAllocate, Allocator::DefaultFree, Allocator::DefaultReallocate, nullptr) {
+    : Allocator(use_hack_alloc()?hackalloc_allocate:Allocator::DefaultAllocate, use_hack_alloc()?hackalloc_free:Allocator::DefaultFree,
+    	use_hack_alloc()?hackalloc_reallocate:Allocator::DefaultReallocate, nullptr) {
 }
 
 Allocator::Allocator(allocate_function_ptr_t allocate_function_p, free_function_ptr_t free_function_p,
