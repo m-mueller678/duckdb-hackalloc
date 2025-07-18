@@ -7,7 +7,7 @@
 
 namespace duckdb {
 
-static constexpr uint64_t alloc_size = (1ull << 30) * 20;
+static constexpr uint64_t alloc_size = (1ull << 30) * 40;
 static constexpr uint64_t alloc_alignment = 16;
 static std::atomic<data_ptr_t> global_memory {nullptr};
 static std::atomic<uint64_t> global_memory_offset {0};
@@ -18,6 +18,10 @@ static data_ptr_t maybe_init_global() {
 	data_ptr_t ptr = global_memory.load(std::memory_order_relaxed);
 	if (ptr == nullptr) {
 		ptr = data_ptr_cast(malloc(alloc_size));
+		for (uint64_t i = 0; i < alloc_size; i += (1<<12)) {
+			ptr[i]=0;
+		}
+		memset(ptr, 0, alloc_size);
 		global_memory.store(ptr, std::memory_order_relaxed);
 	}
 	alloc_lock.unlock();
