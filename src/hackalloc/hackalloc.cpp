@@ -13,13 +13,15 @@ static std::atomic<data_ptr_t> global_memory {nullptr};
 static std::atomic<uint64_t> global_memory_offset {0};
 std::mutex alloc_lock;
 
+constexpr uint64_t local_batch_size = 1 << 24;
+
 static data_ptr_t maybe_init_global() {
 	alloc_lock.lock();
 	data_ptr_t ptr = global_memory.load(std::memory_order_relaxed);
 	if (ptr == nullptr) {
 		ptr = data_ptr_cast(malloc(alloc_size));
-		for (uint64_t i = 0; i < alloc_size; i += (1<<12)) {
-			ptr[i]=0;
+		for (uint64_t i = 0; i < alloc_size; i += (1 << 12)) {
+			ptr[i] = 0;
 		}
 		memset(ptr, 0, alloc_size);
 		global_memory.store(ptr, std::memory_order_relaxed);
@@ -28,9 +30,7 @@ static data_ptr_t maybe_init_global() {
 	return ptr;
 }
 
-data_ptr_t hackalloc_allocate(PrivateAllocatorData *private_data, idx_t size) {
-	size += alloc_alignment - 1;
-	size -= size % alloc_alignment;
+static data_ptr_t hackalloc_allocate_global(idx_t size) {
 	data_ptr_t ptr = global_memory.load(std::memory_order_relaxed);
 	if (ptr == nullptr) [[unlikely]] {
 		ptr = maybe_init_global();
@@ -41,6 +41,24 @@ data_ptr_t hackalloc_allocate(PrivateAllocatorData *private_data, idx_t size) {
 		return nullptr;
 	}
 	return ptr + offset;
+}
+
+thread_local uint64_t local_remaining = 0;
+thread_local data_ptr_t local_bump = nullptr;
+
+data_ptr_t hackalloc_allocate(PrivateAllocatorData *private_data, idx_t size) {
+	size += alloc_alignment - 1;
+	size -= size % alloc_alignment;
+	if (local_remaining < size) {
+		if (size > local_batch_size / 2) {
+			return hackalloc_allocate_global(size);
+		}
+		local_bump = hackalloc_allocate_global(local_batch_size) + local_batch_size;
+		local_remaining = local_batch_size;
+	}
+	local_bump -= size;
+	local_remaining -= size;
+	return local_bump;
 }
 
 void hackalloc_free(PrivateAllocatorData *private_data, data_ptr_t pointer, idx_t size) {
