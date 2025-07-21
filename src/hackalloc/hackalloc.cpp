@@ -7,7 +7,7 @@
 
 namespace duckdb {
 
-static constexpr uint64_t alloc_size = (1ull << 30) * 40;
+static uint64_t alloc_size = 0;
 static constexpr uint64_t alloc_alignment = 16;
 static std::atomic<data_ptr_t> global_memory {nullptr};
 static std::atomic<uint64_t> global_memory_offset {0};
@@ -15,10 +15,16 @@ std::mutex alloc_lock;
 
 constexpr uint64_t local_batch_size = 1 << 24;
 
+static uint64_t hackalloc_config() {
+	const auto env = getenv("HACK_ALLOC");
+	return env ? std::stoul(env) : 0;
+}
+
 static data_ptr_t maybe_init_global() {
 	alloc_lock.lock();
 	data_ptr_t ptr = global_memory.load(std::memory_order_relaxed);
 	if (ptr == nullptr) {
+		alloc_size = hackalloc_config() << 30;
 		ptr = data_ptr_cast(malloc(alloc_size));
 		for (uint64_t i = 0; i < alloc_size; i += (1 << 12)) {
 			ptr[i] = 0;
@@ -69,5 +75,8 @@ data_ptr_t hackalloc_reallocate(PrivateAllocatorData *private_data, data_ptr_t p
 	memmove(new_alloc, pointer, std::min(size, old_size));
 	hackalloc_free(private_data, pointer, old_size);
 	return new_alloc;
+}
+bool use_hack_alloc() {
+	return hackalloc_config() != 0;
 }
 } // namespace duckdb

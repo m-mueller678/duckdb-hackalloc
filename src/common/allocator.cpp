@@ -102,10 +102,6 @@ PrivateAllocatorData::PrivateAllocatorData() {
 PrivateAllocatorData::~PrivateAllocatorData() {
 }
 
-static bool use_hack_alloc() {
-	return getenv("HACK_ALLOC")!=nullptr;
-}
-
 //===--------------------------------------------------------------------===//
 // Allocator
 //===--------------------------------------------------------------------===//
