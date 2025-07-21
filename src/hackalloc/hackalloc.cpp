@@ -72,6 +72,9 @@ void hackalloc_free(PrivateAllocatorData *private_data, data_ptr_t pointer, idx_
 
 data_ptr_t hackalloc_reallocate(PrivateAllocatorData *private_data, data_ptr_t pointer, idx_t old_size, idx_t size) {
 	auto new_alloc = hackalloc_allocate(private_data, size);
+	if (!new_alloc) [[unlikely]] {
+		return nullptr;
+	}
 	memmove(new_alloc, pointer, std::min(size, old_size));
 	hackalloc_free(private_data, pointer, old_size);
 	return new_alloc;
