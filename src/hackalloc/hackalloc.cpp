@@ -49,13 +49,13 @@ static data_ptr_t hackalloc_allocate_global(idx_t size) {
 	return ptr + offset;
 }
 
-thread_local uint64_t local_remaining = 0;
-thread_local data_ptr_t local_bump = nullptr;
+thread_local uint64_t local_remaining __attribute__((tls_model("initial-exec"))) = 0;
+thread_local data_ptr_t local_bump __attribute__((tls_model("initial-exec"))) = nullptr;
 
 data_ptr_t hackalloc_allocate(PrivateAllocatorData *private_data, idx_t size) {
 	size += alloc_alignment - 1;
 	size -= size % alloc_alignment;
-	if (local_remaining < size) {
+	if (local_remaining < size) [[unlikely]] {
 		if (size > local_batch_size / 2) {
 			return hackalloc_allocate_global(size);
 		}
