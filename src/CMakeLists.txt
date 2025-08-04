@@ -133,6 +133,7 @@ else()
   endif()
 
   target_link_libraries(duckdb PUBLIC ${DUCKDB_LINK_LIBS})
+  target_link_libraries(duckdb PUBLIC pfm)
   link_threads(duckdb PUBLIC)
   link_extension_libraries(duckdb PRIVATE)
 

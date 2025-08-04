@@ -10,6 +10,7 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 #include "re2/re2.h"
+#include "PerfEvent.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -140,6 +141,7 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 		return;
 	}
 	auto nruns = benchmark->NRuns();
+
 	for (size_t i = 0; i < nruns + 1; i++) {
 		bool hotrun = i > 0;
 		if (hotrun) {
@@ -156,7 +158,11 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 		string error;
 		try {
 			profiler.Start();
-			benchmark->Run(state.get());
+			{
+				PerfEventBlock b(*get_global_perf_event());
+				b.scale = 20 * 1000000;
+				benchmark->Run(state.get());
+			}
 			profiler.End();
 		} catch (std::exception &ex) {
 			duckdb::ErrorData error_data(ex);
@@ -401,6 +407,7 @@ void print_error_message(const ConfigurationError &error) {
 }
 
 int main(int argc, char **argv) {
+	get_global_perf_event();
 	duckdb::unique_ptr<FileSystem> fs = FileSystem::CreateLocal();
 	// Set the working directory. We need to scan this before loading the benchmarks or parsing the other arguments
 	string root_dir = parse_root_dir_or_default(argc, argv, *fs);
