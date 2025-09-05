@@ -20,9 +20,12 @@ run_cmd() {
   fi
 }
 
+THREADS=""
+#THREADS="--threads=192"
+
 for i in $(seq -w 1 22); do
-  HACK_ALLOC=0 run_cmd build/reldebug/benchmark/benchmark_runner benchmark/tpch/sf1/q${i}.benchmark --sf $SF
+  NAME="jemalloc-$i" HACK_ALLOC=0 run_cmd build/reldebug/benchmark/benchmark_runner benchmark/tpch/sf1/q${i}.benchmark --sf $SF $THREADS
 done
 for i in $(seq -w 1 22); do
-  run_cmd build/reldebug/benchmark/benchmark_runner benchmark/tpch/sf1/q${i}.benchmark --sf $SF
+  NAME="hackalloc-$i" run_cmd build/reldebug/benchmark/benchmark_runner benchmark/tpch/sf1/q${i}.benchmark --sf $SF $THREADS
 done

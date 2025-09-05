@@ -159,8 +159,9 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 		try {
 			profiler.Start();
 			{
-				PerfEventBlock b(*get_global_perf_event());
-				b.scale = 20 * 1000000;
+				const char *name = getenv("NAME");
+				name = name ? name : "";
+				PerfEventBlock b(*get_global_perf_event(), 20 * 1000000, BenchmarkParameters {name});
 				benchmark->Run(state.get());
 			}
 			profiler.End();
