@@ -21,8 +21,8 @@ run_cmd() {
 }
 
 for i in $(seq -w 1 22); do
-  HACK_ALLOC=0 run_cmd build/release/benchmark/benchmark_runner benchmark/tpch/sf1/q${i}.benchmark --sf $SF
+  HACK_ALLOC=0 run_cmd build/reldebug/benchmark/benchmark_runner benchmark/tpch/sf1/q${i}.benchmark --sf $SF
 done
 for i in $(seq -w 1 22); do
-  run_cmd build/release/benchmark/benchmark_runner benchmark/tpch/sf1/q${i}.benchmark --sf $SF
+  run_cmd build/reldebug/benchmark/benchmark_runner benchmark/tpch/sf1/q${i}.benchmark --sf $SF
 done
